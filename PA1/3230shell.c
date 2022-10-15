@@ -25,6 +25,7 @@ pid_t pid;
 
 int i;
 int sizeofargv;
+int funcerr;
 int pipecount;
 
 void block_sig();
@@ -34,10 +35,11 @@ int timeXfunc();
 int exitfunc();
 int check_pipe();
 void without_pipe();
+int div_arg();
 int with_pipe();
 
 int main(){
-
+    funcerr = 0;
     while(1){
 
         get_cmd();
@@ -55,13 +57,17 @@ int main(){
             else continue;
         }
 
-        if(!strcmp(cmd, "timeX")) {
-            timeXfunc();
+        if(!strcmp(cmd, "timeX")){
+            if (timeXfunc() == 1) {
+                break;
+            } 
+            else continue;
         }
 
         if (check_pipe() == 0) {
             without_pipe();
         } else {
+            div_arg();
             with_pipe();
         }
     }
@@ -75,10 +81,6 @@ void block_sig(){
     sigprocmask(SIG_BLOCK, &block_set, NULL);
 }
 
-void timeX(){
-    // add logic here
-}
-
 int exitfunc(){
     if (argv[1] != NULL) {
         printf("3230shell: \"exit\" with other arguments!!!\n");
@@ -86,7 +88,7 @@ int exitfunc(){
     } else { 
         printf("3230shell: Terminated\n");
         // release all the data and terminate?
-        char *terminate[2] = {"ps", NULL};
+        char *terminate[3] = {"ps", "-t", NULL};
         execv("/bin/ps", terminate);
 
         return 1;
@@ -94,9 +96,17 @@ int exitfunc(){
 }
 
 int timeXfunc(){
-    if(!strcmp(argv[-1],"&")) {
-        printf("3230shell: \"timeX\" cannot be run in background mode");
+    // add timeX logic here
+    if (!strcmp(argv[sizeofargv-1],"&")){
+        printf("3230shell: \"timeX\" cannot be run in background mode\n");
+        funcerr++;
         return 0;
+    } else if (sizeofargv == 1 && !strcmp(argv[sizeofargv-1],"timeX")){
+        printf("\"timeX\" cannot be a standalone command\n");
+        funcerr++;
+        return 0;
+    } else {
+
     }
 }
 
@@ -122,8 +132,7 @@ void convert_cmd(){
     }
 
     if(!strcmp("&", argv[i-1])){
-	    argv[i-1] = NULL;
-	    argv[i] = "&";
+        
 	    } else{
 	        argv[i] = NULL;
 	}
@@ -151,6 +160,9 @@ void without_pipe() {
         } else if (pid == 0) {
             // include file path
             execvp(argv[0], argv);
+            if (funcerr != 0) {
+                exit(1);
+            }
             printf("3230shell: '%s': No such file or directory\n", argv[0]);
             exit(1);
         } else {
@@ -160,7 +172,7 @@ void without_pipe() {
         }
 }
 
-int with_pipe() {
+int div_arg() {
     for (int i=0; i<sizeofargv-1; i++) {
         if(!strcmp(argv[i],"|")){
             if(!strcmp(argv[i+1],"|")){
@@ -172,7 +184,7 @@ int with_pipe() {
 
     switch (pipecount) {
         case 1:
-
+            printf("");
             int spot;
 
             for(int i=0; i<sizeofargv; i++){
@@ -193,7 +205,7 @@ int with_pipe() {
 
             break;
         case 2:
-
+            printf("");
             int spot2_1;
             int spot2_2;
 
@@ -225,10 +237,9 @@ int with_pipe() {
                 argv3[l] = argv[i];
                 l++;
             }
-
             break;
         case 3:
-
+            printf("");
             int spot3_1;
             int spot3_2;
             int spot3_3;
@@ -277,6 +288,7 @@ int with_pipe() {
 
             break;
         case 4:
+            printf("");
 
             int spot4_1;
             int spot4_2;
@@ -340,5 +352,35 @@ int with_pipe() {
             }
 
             break;
+    }
+}
+
+int with_pipe(){
+    if (pipecount == 1) {
+        int fd[2];
+        if (pipe(fd) == -1) {
+            fprintf(stderr, "pipe() Failed");
+            exit(-1);
+        }
+
+        int pid1 = fork();
+        if (pid < 0) {
+            printf(stderr, "fork() Failed");
+            exit(-1);
+        } else if (pid1 == 0) {
+            dup2(fd[1], STDOUT_FILENO);
+            close(fd[0]);
+            close(fd[1]);
+            execvp(argv1[0], argv1);
+        }
+
+        int pid2 = fork();
+        if (pid2 < 0)
+
+        waitpid(pid1, NULL, 0);
+        return 0;
+
+    } else {
+
     }
 }
