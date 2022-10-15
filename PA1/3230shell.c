@@ -19,6 +19,7 @@ void block_sig();
 void get_cmd();
 void convert_cmd();
 void timeX();
+int exitfunc();
 
 int main(){
 
@@ -30,12 +31,16 @@ int main(){
             continue;
         }
 
-        if(!strcmp(cmd, "exit")) {
-            break;
-        }
-        printf("cmd before convert: %s\n", cmd);
+        // printf("cmd before convert: %s\n", cmd);
         convert_cmd();
-        printf("cmd after convert: %s\n", cmd);
+        // printf("cmd after convert: %s\n", cmd);
+
+        if(!strcmp(cmd, "exit")) {
+            if (exitfunc() == 1) {
+                break;
+            }
+            else continue;
+        }
 
         pid = fork();
         if(pid < 0){
@@ -66,6 +71,18 @@ void timeX(){
     // add exec logic here
 }
 
+int exitfunc(){
+    if (argv[1] != NULL) {
+        printf("3230shell: \"exit\" with other arguments!!!\n");
+        return 0;
+    } else {
+        printf("3230shell: Terminated");
+        // realase all resources and terminate. show the 
+        return 1;
+    }
+    // add exit logic here
+}
+
 void get_cmd(){
     printf("$$ 3230shell ## ");
     block_sig();
@@ -91,8 +108,6 @@ void convert_cmd(){
 	    } else{
 	        argv[i] = NULL;
 	}
-
-    printf("argv[0]: %s\n",argv[0]);
 
     //add pipe here later
 
