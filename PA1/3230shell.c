@@ -110,6 +110,7 @@ int exitfunc(){
     }
 }
 
+
 int timeXfunc(){
     if (!strcmp(argv[sizeofargv-1],"&")){
         printf("3230shell: \"timeX\" cannot be run in background mode\n");
@@ -221,6 +222,8 @@ void without_pipe() {
             if(NULL == argv[i]) {
                 waitpid(pid, NULL, 0);
             }
+            // remove zombie processes
+            waitpid(-1, NULL, WNOHANG);
         }
 }
 
@@ -409,6 +412,21 @@ int div_arg() {
                 printf("too many pipes!!!\n");
                 break;
         return 1;
+    }
+}
+
+void close_mfd(int mfd[][2], int i, int total){
+    for (int j=0; j<total; j++){
+        if (i==j){
+            close(mfd[j][1]);
+            continue;
+        }
+        if (i+j == j){
+            close(mfd[j][0]);
+            continue;
+        }
+        close(mfd[j][0]);
+        close(mfd[j][1]);
     }
 }
 
