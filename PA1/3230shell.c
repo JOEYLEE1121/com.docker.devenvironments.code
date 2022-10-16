@@ -1,8 +1,20 @@
+/*
+Sutdent Info:
+    Name: Chang Jun Lee
+    UID: 3035729629
+
+Reference list:
+    1 pipe: https://www.youtube.com/watch?v=Mqb2dVRe0uo&t=566s
+    SIGINT: https://stackoverflow.com/questions/54352563/block-sigint-from-terminating-program
+    strtok: https://www.youtube.com/watch?v=zDjLADJGXFs
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sys/resource.h>
 #include <unistd.h>
 #include <signal.h>
 #include <stddef.h>
@@ -12,14 +24,17 @@
 
 char cmd[MAX_SIZE_CMD];
 
+// user input will be stored here
 char *argv[MAX_SIZE_ARG];
 
+// if pipe detected, arguments will be distributed to these arrays
 char *argv1[MAX_SIZE_ARG];
 char *argv2[MAX_SIZE_ARG];
 char *argv3[MAX_SIZE_ARG];
 char *argv4[MAX_SIZE_ARG];
 char *argv5[MAX_SIZE_ARG];
 
+char *timeXtmp[MAX_SIZE_ARG];
 
 pid_t pid;
 
@@ -67,6 +82,7 @@ int main(){
         if (check_pipe() == 0) {
             without_pipe();
         } else {
+            // divide arguments into separate arrays
             div_arg();
             with_pipe();
         }
@@ -74,6 +90,7 @@ int main(){
     return 0;
 }
 
+// blocks SIGINT
 void block_sig(){
     sigset_t block_set;
     sigemptyset(&block_set);
@@ -82,21 +99,18 @@ void block_sig(){
 }
 
 int exitfunc(){
+    // error handle for exit with other arguments
     if (argv[1] != NULL) {
         printf("3230shell: \"exit\" with other arguments!!!\n");
         return 0;
     } else { 
+        // exit
         printf("3230shell: Terminated\n");
-        // release all the data and terminate?
-        char *terminate[3] = {"ps", "-t", NULL};
-        execv("/bin/ps", terminate);
-
-        return 1;
+        exit(0);
     }
 }
 
 int timeXfunc(){
-    // add timeX logic here
     if (!strcmp(argv[sizeofargv-1],"&")){
         printf("3230shell: \"timeX\" cannot be run in background mode\n");
         funcerr++;
@@ -105,8 +119,46 @@ int timeXfunc(){
         printf("\"timeX\" cannot be a standalone command\n");
         funcerr++;
         return 0;
-    } else {
-
+    } else if (pipecount == 0) {
+        int t_pid = fork();
+        if (t_pid < 0) {
+            fprintf(stderr, "timeX failed\n");
+            exit(-1);
+        } else if (t_pid == 0){
+            for (int i=0; i<sizeofargv; i++){
+                timeXtmp[i] = argv[i+1];
+                if (i+1 == sizeofargv) {
+                    break;
+                }
+            }
+            execvp(timeXtmp[0], timeXtmp);
+            exit(0);
+        } else {
+            int status;
+            struct rusage rusage;
+            int ret = wait4(t_pid, &status, 0, &rusage);
+            printf("(PID)%d (CMD)%s (user)%.3f s (sys)%.3f s \n",t_pid, argv[1], rusage.ru_utime.tv_sec + rusage.ru_utime.tv_usec / 1000000.0, rusage.ru_stime.tv_sec + rusage.ru_stime.tv_usec / 1000000.0);
+        }
+    } else if (pipecount == 1) {
+        int t_pid = fork();
+        if (t_pid < 0) {
+            fprintf(stderr, "timeX failed\n");
+            exit(-1);
+        } else if (t_pid == 0){
+            for (int i=0; i<sizeofargv; i++){
+                timeXtmp[i] = argv[i+1];
+                if (i+1 == sizeofargv) {
+                    break;
+                }
+            }
+            execvp(timeXtmp[0], timeXtmp);
+            exit(0);
+        } else {
+            int status;
+            struct rusage rusage;
+            int ret = wait4(t_pid, &status, 0, &rusage);
+            printf("(PID)%d (CMD)%s (user)%.3f s (sys)%.3f s \n",t_pid, argv[1], rusage.ru_utime.tv_sec + rusage.ru_utime.tv_usec / 1000000.0, rusage.ru_stime.tv_sec + rusage.ru_stime.tv_usec / 1000000.0);
+        }
     }
 }
 
@@ -181,7 +233,7 @@ int div_arg() {
             }
         }
     }
-
+    // divide into cases depending on the number of pipes (max 4)
     switch (pipecount) {
         case 1:
             printf("");
@@ -352,6 +404,11 @@ int div_arg() {
             }
 
             break;
+        
+            default:
+                printf("too many pipes!!!\n");
+                break;
+        return 1;
     }
 }
 
@@ -365,19 +422,41 @@ int with_pipe(){
 
         int pid1 = fork();
         if (pid < 0) {
-            printf(stderr, "fork() Failed");
+            fprintf(stderr, "fork() Failed");
             exit(-1);
         } else if (pid1 == 0) {
             dup2(fd[1], STDOUT_FILENO);
             close(fd[0]);
             close(fd[1]);
             execvp(argv1[0], argv1);
+            if (funcerr != 0) {
+                exit(1);
+            }
+            printf("3230shell: '%s': No such file or directory\n", argv1[0]);
+            exit(1);
         }
 
         int pid2 = fork();
-        if (pid2 < 0)
+        if (pid2 < 0) {
+            fprintf(stderr, "pipe() Failed");
+            exit(-1);
+        } else if (pid2 == 0) {
+            dup2(fd[0], STDIN_FILENO);
+            close(fd[0]);
+            close(fd[1]);
+            execvp(argv2[0], argv2);
+            if (funcerr != 0) {
+                exit(1);
+            }
+            printf("3230shell: '%s': No such file or directory\n", argv2[0]);
+            exit(1);
+        }
 
+        close(fd[0]);
+        close(fd[1]);
         waitpid(pid1, NULL, 0);
+        waitpid(pid2, NULL, 0);
+
         return 0;
 
     } else {
