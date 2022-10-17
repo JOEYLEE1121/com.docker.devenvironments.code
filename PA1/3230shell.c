@@ -79,9 +79,7 @@ int main(){
             } 
             else continue;
         }
-        signal(SIGUSR1, &on_sigusr1);
-        raise(SIGUSR1);
-        
+        //signal(SIGUSR1, &on_sigusr1);
         if (check_pipe() == 0) {
             without_pipe();
         } else {
@@ -99,10 +97,6 @@ void block_sig(){
     sigemptyset(&block_set);
     sigaddset(&block_set, SIGINT);
     sigprocmask(SIG_BLOCK, &block_set, NULL);
-}
-
-void on_sigusr1(){
-
 }
 
 int exitfunc(){
@@ -218,7 +212,7 @@ void without_pipe() {
             fprintf(stderr, "fork() Failed");
             exit(1);
         } else if (pid == 0) {
-
+            // include file path
             execvp(argv[0], argv);
             if (funcerr != 0) {
                 exit(1);
