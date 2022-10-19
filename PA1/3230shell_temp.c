@@ -24,8 +24,8 @@ Reference list:
 
 char cmd[MAX_SIZE_CMD];
 
-
-char *argv[MAX_SIZE_ARG]; // user input will be stored here
+// user input will be stored here
+char *argv[MAX_SIZE_ARG];
 
 // if pipe detected, arguments will be distributed to these arrays
 char *argv1[MAX_SIZE_ARG];
@@ -43,7 +43,6 @@ int sizeofargv;
 int funcerr;
 int pipecount;
 static int READY = 0;
-int timeXcmd = 0;
 
 void block_sig();
 void get_cmd();
@@ -61,18 +60,7 @@ void handle_sigusr1(int sig) {
     READY = 1;
 }
 
-void remove_element(char *array[], int index, int array_length) {
-   for(int i = index; i < array_length - 1; i++) {
-    array[i] = array[i + 1];
-   }
-
-    for (int i=0; i < sizeofargv; i++) {
-        printf("argv[i]: %s\n",argv[i]);
-    }
-}
-
 char** getArgvByNum(int id) {
-    // printf("I'm in\n");
     if (id == 1) return argv1;
     else if (id == 2) return argv2;
     else if (id == 3) return argv3;
@@ -80,25 +68,10 @@ char** getArgvByNum(int id) {
     else return argv5;
 }
 
-char* returnTimeXcmd() {
-    switch (timeXcmd) {
-        case 1:
-            return argv1[0];
-        case 2:
-            return argv2[0];
-        case 3:
-            return argv3[0];
-        case 4:
-            return argv4[0];
-        case 5:
-            return argv5[0];
-    }
-}
-
 int main(){
     funcerr = 0;
     signal(SIGUSR1, handle_sigusr1);
-    signal(SIGINT, handle_sigint);
+    // signal(SIGINT, handle_sigint);
     while(1){
         // gets user input
         get_cmd();
@@ -112,7 +85,7 @@ int main(){
             printf("3230shell: invalid |\n");
             continue;
         }
-        // use strtok to store variable
+        // use strtok to store vraiable
         convert_cmd();
 
         int consecutive_pipes_error_flag = 0;
@@ -136,24 +109,60 @@ int main(){
             else continue;
         }
 
-        if (check_pipe() == 0) {
-            if(!strcmp(cmd, "timeX")){
-                if (timeXfunc() == 1) {
-                    break;
-                } 
-                else continue;
+        // timeX function handling
+        if(!strcmp(cmd, "timeX")){
+            if (timeXfunc() == 1) {
+                break;
+            } 
+            else continue;
         }
-            without_pipe();
-        } else {
-            div_arg();
-            if(!strcmp(cmd, "timeX")){
-                if (timeXfunc() == 1) {
-                    break;
+        div_arg();
+
+        int fd[2], in = 0, out = 1;
+        int total_num_cmds = pipecount + 1;
+        printf("total_num_cmds: %d\n", total_num_cmds);
+
+        for (int k = 0; k < total_num_cmds; k++) {
+            printf("k: %d\n", k);
+            pid_t pid = fork();
+            if (pid == 0) {
+                while (READY == 0) {
+                    usleep(10);
+                    if (READY == 1) break;
                 } 
-                else continue;
+                // if (k != total_num_cmds - 1) {
+                //     dup2(fd[1], 1); 
+                // }
+                // dup2(in, 0);
+                // close(fd[1]);
+                // close(fd[0]);
+                // execlp("ls", "ls", NULL);
+                execvp(getArgvByNum(i + 1)[0], getArgvByNum(i + 1));
+            } else {
+                printf("SFSDSFDSFDSSDF");
+                kill(pid, SIGUSR1);
+                printf("SFSDSFDSFDSSDF");
+                int status;
+                printf("SFSDSFDSFDSSDF");
+                struct rusage usage;
+                // wait4(pid, &status, 0, &usage);
+                waitpid(pid, NULL, 0);
             }
-            with_pipe();
+
+            // in = fd[0];
+            // close(fd[0]);
         }
+        // close(fd[0]);
+        // close(fd[1]);
+        // signal(SIGUSR1, &on_sigusr1);
+        // separate cases, with pipe and without pipe
+        // if (check_pipe() == 0) {
+        //     without_pipe();
+        // } else {
+        //     // divide arguments into separate arrays
+        //     div_arg();
+        //     with_pipe();
+        // }
     }
     return 0;
 }
@@ -167,10 +176,9 @@ void block_sig(){
     
 }
 
-void handle_sigint(int sig) {
-    printf("\n$$ 3230shell ## ");
-    fflush(stdout); 
-}
+// void handle_sigint(int sig) {
+//     printf("\n$$ 3230shell: ## ");
+// }
 
 int exitfunc(){
     // error handle for exit with other arguments
@@ -222,80 +230,39 @@ int timeXfunc(){
             int ret = wait4(t_pid, &status, 0, &rusage);
             printf("(PID)%d (CMD)%s (user)%.3f s (sys)%.3f s \n",t_pid, argv[1], rusage.ru_utime.tv_sec + rusage.ru_utime.tv_usec / 1000000.0, rusage.ru_stime.tv_sec + rusage.ru_stime.tv_usec / 1000000.0);
         }
-    } else if (pipecount > 0) {
-
-        int fd[2], in = 0, out;
-        
-        int total_num_cmds = pipecount + 1;
-
-        int lastpid;
-
-        char *timeXoutput[MAX_SIZE_ARG];
-
-        for (int k = 0; k < total_num_cmds; k++) {
-            
-            pipe(fd);
-            out = fd[1];
-            pid_t pid = fork();
-            int lastflag = 0;
-            
-            ++timeXcmd;
-            if (pid == 0) {
-                
-                while (READY == 0) {
-                    usleep(10);
-                    if (READY == 1) break;
+    } else if (pipecount == 1) { // timeX with 1 pipe
+        int t_pid = fork();
+        if (t_pid < 0) {
+            fprintf(stderr, "timeX failed\n");
+            exit(-1);
+        } else if (t_pid == 0){
+            while (READY == 0) {
+                usleep(100);
+                if (READY == 1) {
+                    break;
                 }
-                if (k == total_num_cmds - 1) {
-                    dup2(1, 1);
-                }
-                if (k != total_num_cmds - 1) {
-                    dup2(out, 1); 
-                }
-                dup2(in, 0);
-
-                close(fd[1]);
-                close(fd[0]);
-
-                lastflag++;
-                printf("parent PID is: %d\n",getppid());
-                printf("this is child (PID)%d\n",getpid());
-                lastpid = pid;
-                execvp(getArgvByNum(k + 1)[0], getArgvByNum(k + 1));
-            } else {
-                
-                kill(pid, SIGUSR1);
-
-                printf("this is parent (PID) %d\n", getpid());
-                int status;
-                // struct rusage usage;
-                // int child_pid = wait4(pid, &status, 0, &usage);
-
-                // if (WIFEXITED(status)) {
-                //     int sCode = WEXITSTATUS(status);
-                    
-                // } else if (WIFSIGNALED(status)) {
-                //     int signalNum = WTERMSIG(status);
-                // }
-
-                struct rusage rusage;
-                int ret = wait4(lastpid, &status, 0, &rusage);
-                printf("lastpid (PID) %d\n", ret);
-                printf("(PID)%d (CMD)%s (user)%.3f s (sys)%.3f s \n",pid, returnTimeXcmd(), rusage.ru_utime.tv_sec + rusage.ru_utime.tv_usec / 1000000.0, rusage.ru_stime.tv_sec + rusage.ru_stime.tv_usec / 1000000.0);
             }
-            in = fd[0];
-            close(fd[1]);
+            for (int i=0; i<sizeofargv; i++){
+                timeXtmp[i] = argv[i+1];
+                if (i+1 == sizeofargv) {
+                    break;
+                }
+            }
+            execvp(timeXtmp[0], timeXtmp);
+            exit(0);
+        } else {
+            kill(pid, SIGUSR1);
+            int status;
+            struct rusage rusage;
+            int ret = wait4(t_pid, &status, 0, &rusage);
+            printf("(PID)%d (CMD)%s (user)%.3f s (sys)%.3f s \n",t_pid, argv[1], rusage.ru_utime.tv_sec + rusage.ru_utime.tv_usec / 1000000.0, rusage.ru_stime.tv_sec + rusage.ru_stime.tv_usec / 1000000.0);
         }
-        close(fd[1]);
-        close(fd[0]);
-
-        }
-        timeXcmd = 0;
+    }
 }
 
 void get_cmd(){
     printf("$$ 3230shell ## ");
-    // block_sig();
+    block_sig();
     fgets(cmd, MAX_SIZE_CMD, stdin);
 	if ((strlen(cmd) > 0) && (cmd[strlen (cmd) - 1] == '\n'))
         	cmd[strlen (cmd) - 1] = '\0';
@@ -347,12 +314,19 @@ void without_pipe() {
                     break;
                 }
             }
+            //printf("argv[%d] : %s\n", sizeofargv-1, argv[sizeofargv-1]);
+            // setpgid(0,0);
+            // if (!strcmp(argv[sizeofargv-1],"&")){
+            //    argv[sizeofargv-1] = NULL;
+            //    printf("%s\n", argv[0]);
+            //    setpgid(0, 0);
+            //}
 
             execvp(argv[0], argv);
             if (funcerr != 0) {
                 exit(1);
             }
-            // error handling if the execvp fails.
+            // error handling if the execvp failssetpgid(0,0);
             char one = '.';
             char two = '/';
             int ascii1 = one;
@@ -387,19 +361,7 @@ int div_arg() {
         }
     }
     // divide into cases depending on the number of pipes (max 4)
-
-    if (!strcmp(cmd,"timeX")){
-
-        for(int i=0; i<sizeofargv-1; i++) {
-            argv[i] = argv[i+1];
-        }
-        argv[sizeofargv-1] = NULL;
-
-        sizeofargv--;
-    }
-
     switch (pipecount) {
-
         case 1:
             printf("");
             int spot;
@@ -409,11 +371,10 @@ int div_arg() {
                     spot = i;
                 }
             }
-            int argv1_len = spot;
+
             for(int i=0; i<spot; i++){
                 argv1[i] = argv[i];
             }
-            argv1[argv1_len] = '\0';
 
             int j = 0;
             for(int i=spot+1; i<sizeofargv; i++){
@@ -421,14 +382,11 @@ int div_arg() {
                 j++;
             }
 
-            argv2[sizeofargv - spot - 1] = '\0';
-
             break;
         case 2:
             printf("");
             int spot2_1;
             int spot2_2;
-
 
             for(int i=0; i<sizeofargv; i++){
                 if(!strcmp(argv[i],"|")){
@@ -436,7 +394,7 @@ int div_arg() {
                     break;
                 }
             }
-            
+
             for(int i=spot2_1 + 1; i<sizeofargv; i++){
                 if(!strcmp(argv[i],"|")){
                     spot2_2 = i;
@@ -446,22 +404,18 @@ int div_arg() {
             for(int i=0; i<spot2_1; i++){
                 argv1[i] = argv[i];
             }
-            argv1[spot2_1] = '\0';
 
             int k = 0;
             for(int i=spot2_1+1; i<spot2_2; i++){
                 argv2[k] = argv[i];
                 k++;
             }
-            argv2[spot2_2 - spot2_1 - 1] = '\0';
 
             int l = 0;
             for(int i=spot2_2+1; i<sizeofargv; i++){
                 argv3[l] = argv[i];
                 l++;
             }
-
-            argv3[sizeofargv - spot2_2 - 1] = '\0';
             break;
         case 3:
             printf("");
@@ -578,58 +532,139 @@ int div_arg() {
 
             break;
         
-        default:
-            printf("too many pipes!!!\n");
-            break;
-        
+            default:
+                printf("too many pipes!!!\n");
+                break;
         return 1;
     }
 }
 
 int with_pipe(){
-    int fd[2], in = 0, out;
-    
+    int fd[2], in = 0, out = 1;
     int total_num_cmds = pipecount + 1;
 
-    for (int k = 0; k < total_num_cmds; k++) {
-        pipe(fd);
-        out = fd[1];
+    for (int i = 0; i < total_num_cmds; i++) {
+        printf("i: %d\n", i);
         pid_t pid = fork();
         if (pid == 0) {
-            
             while (READY == 0) {
                 usleep(10);
                 if (READY == 1) break;
             }
-            if (k == total_num_cmds - 1) {
-                dup2(1, 1);
-            }
-            if (k != total_num_cmds - 1) {
-                dup2(out, 1); 
+            if (i != total_num_cmds - 1) {
+                dup2(fd[1], 1); 
             }
             dup2(in, 0);
-
             close(fd[1]);
             close(fd[0]);
-            
-            execvp(getArgvByNum(k + 1)[0], getArgvByNum(k + 1));
+
+            execvp(getArgvByNum(i + 1)[0], getArgvByNum(i + 1));
         } else {
             kill(pid, SIGUSR1);
             int status;
             struct rusage usage;
-            int child_pid = wait4(pid, &status, 0, &usage);
-
-            if (WIFEXITED(status)) {
-                int sCode = WEXITSTATUS(status);
-                
-            } else if (WIFSIGNALED(status)) {
-                int signalNum = WTERMSIG(status);
-            }
+            // wait4(pid, &status, 0, &usage);
+            waitpid(pid, NULL, 0);
         }
 
         in = fd[0];
-        close(fd[1]);
+        close(fd[0]);
     }
-    close(fd[1]);
     close(fd[0]);
+    close(fd[1]);
+    // if (pipecount == 1) {
+    //     int fd[2];
+    //     if (pipe(fd) == -1) {
+    //         fprintf(stderr, "pipe() Failed");
+    //         exit(-1);
+    //     }
+
+    //     int pid1 = fork();
+    //     if (pid < 0) {
+    //         fprintf(stderr, "fork() Failed");
+    //         exit(-1);
+    //     } else if (pid1 == 0) {
+    //         dup2(fd[1], STDOUT_FILENO);
+    //         close(fd[0]);
+    //         close(fd[1]);
+    //         execvp(argv1[0], argv1);
+    //         if (funcerr != 0) {
+    //             exit(1);
+    //         }
+    //         // error handling if the execvp fails
+    //         char one = '.';
+    //         char two = '/';
+    //         int ascii1 = one;
+    //         int asciia0 = argv[0][0];
+    //         int ascii2 = two;
+    //         int asciia1 = argv[0][1];
+    //         if(ascii1 == asciia0 && ascii2 == asciia1){
+    //             printf("3230shell: '%s': Permission denied\n", argv[0]);
+    //         }
+    //         else{
+    //             printf("3230shell: '%s': No such file or directory\n", argv[0]);
+    //         }
+    //         exit(1);
+    //     }
+
+    //     int pid2 = fork();
+    //     if (pid2 < 0) {
+    //         fprintf(stderr, "pipe() Failed");
+    //         exit(-1);
+    //     } else if (pid2 == 0) {
+    //         dup2(fd[0], STDIN_FILENO);
+    //         close(fd[0]);
+    //         close(fd[1]);
+    //         execvp(argv2[0], argv2);
+    //         if (funcerr != 0) {
+    //             exit(1);
+    //         }
+    //         // error handling if the execvp fails
+    //         char one = '.';
+    //         char two = '/';
+    //         int ascii1 = one;
+    //         int asciia0 = argv[0][0];
+    //         int ascii2 = two;
+    //         int asciia1 = argv[0][1];
+    //         if(ascii1 == asciia0 && ascii2 == asciia1){
+    //             printf("3230shell: '%s': Permission denied\n", argv[0]);
+    //         }
+    //         else{
+    //             printf("3230shell: '%s': No such file or directory\n", argv[0]);
+    //         }
+    //         exit(1);
+    //     }
+
+    //     close(fd[0]);
+    //     close(fd[1]);
+    //     waitpid(pid1, NULL, 0);
+    //     waitpid(pid2, NULL, 0);
+
+    //     return 0;
+
+    // } else {
+
+    // }
 }
+
+char* trim_str(char* str) {
+    if (strlen(str) == 0) return str;
+    int len = strlen(str);
+    int is_all_spaces = 1;
+    for (int i = 0; i < len; i++) {
+        if (str[i] != ' ') {
+            is_all_spaces = 1;
+            break;
+        }
+    }
+
+    if (is_all_spaces) return "";
+    
+    int i = 0, j = len - 1;
+    while(i <= j && str[i] == ' ' && str[j] == ' ') {
+        i++;
+        j--;
+    }
+    i--;
+    j++;
+} 
