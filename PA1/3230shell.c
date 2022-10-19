@@ -3,11 +3,26 @@ Sutdent Info:
     Name: Chang Jun Lee
     UID: 3035729629
 
+Development platform: 
+    docker
+
+Remark:
+    All of the requirements and the bonus points are completed, but there is some minor issues.
+    Examples of error: 
+        1. background process runs and SIGCHLD is handled but the format is slightly different fro the documentation requirement.
+        2. sometimes timeX function fails when & is typed in command, sometimes it doesn't.
+        3. sometimes an unknown infinite loop occurs where commands does not work.
+
 Reference list:
     1 pipe: https://www.youtube.com/watch?v=Mqb2dVRe0uo&t=566s
     multipipe: https://www.youtube.com/watch?v=NkfIUo_Qq4c&t=618s
     SIGINT: https://stackoverflow.com/questions/54352563/block-sigint-from-terminating-program
     strtok: https://www.youtube.com/watch?v=zDjLADJGXFs
+    SIGCHLD : https://stackoverflow.com/questions/63791087/can-i-get-the-signal-int-constant-like-sigint-or-sigkill-that-terminated-a-pro
+
+How to compile:
+    gcc 3230shell_3035729629.c -o 32320shell_3035729629
+    ./3230shell_3035729629
 */
 
 #include <stdio.h>
@@ -27,14 +42,13 @@ char cmd[MAX_SIZE_CMD];
 
 char *argv[MAX_SIZE_ARG]; // user input will be stored here
 
-// if pipe detected, arguments will be distributed to these arrays
-char *argv1[MAX_SIZE_ARG];
-char *argv2[MAX_SIZE_ARG];
-char *argv3[MAX_SIZE_ARG];
+char *argv1[MAX_SIZE_ARG]; // if pipe detected, arguments will be distributed to these arrays
+char *argv2[MAX_SIZE_ARG]; // for example, if 1 pipe "|" is detected, strings seperated by " " will be stored to argv1 and argv2 each
+char *argv3[MAX_SIZE_ARG]; // ex) user input: ls -l | grep 217 => argv1[0] = "ls", argv1[1] = "-l", argv2[0] = "grep", argv2[1] = "217"
 char *argv4[MAX_SIZE_ARG];
 char *argv5[MAX_SIZE_ARG];
 
-char *timeXtmp[MAX_SIZE_ARG];
+char *timeXtmp[MAX_SIZE_ARG]; // tmp varaible to handle timeX function without pipe
 
 pid_t pid;
 
@@ -46,7 +60,6 @@ static int READY = 0;
 int timeXcmd = 0;
 int background;
 
-void block_sig();
 void get_cmd();
 void convert_cmd();
 int timeXfunc();
@@ -57,9 +70,13 @@ void without_pipe();
 int div_arg();
 int with_pipe();
 
-void handle_sigint(int sig);
+void handle_sigint(int sig)
+{
+    printf("\n$$ 3230shell ## ");
+    fflush(stdout);
+}
 
-void handle_sigusr1(int sig)
+void handle_sigusr1(int sig) 
 {
     READY = 1;
 }
@@ -67,10 +84,10 @@ void handle_sigusr1(int sig)
 void handle_sigchld(int sig)
 {
     int status;
-    siginfo_t signal_info;
+    siginfo_t siginfo;
 
-    while (waitid(P_ALL, 0, &signal_info, WNOHANG| WEXITED | WNOWAIT) >= 0) {
-        pid_t pid = signal_info.si_pid;
+    while (waitid(P_ALL, 0, &siginfo, WNOHANG | WEXITED | WNOWAIT) >= 0) {
+        pid_t pid = siginfo.si_pid;
       if (pid == 0) {
          break;
       }
@@ -78,30 +95,10 @@ void handle_sigchld(int sig)
 
         // Remove zombie process
         waitpid(pid, &status, 0);
-
-        // If the background process has terminated
-        if (WIFEXITED(status)) {
-            if(WEXITSTATUS(status) == 0) {
-                printf("\nProgram terminated.\n");
-            }
-        }
     }
 }
 
-void remove_element(char *array[], int index, int array_length)
-{
-    for (int i = index; i < array_length - 1; i++)
-    {
-        array[i] = array[i + 1];
-    }
-
-    for (int i = 0; i < sizeofargv; i++)
-    {
-        printf("argv[i]: %s\n", argv[i]);
-    }
-}
-
-char **getArgvByNum(int id)
+char **getArgvByNum(int id) // function to handle distribute commands properly when timeX is with pipe
 {
     if (id == 1)
         return argv1;
@@ -115,24 +112,7 @@ char **getArgvByNum(int id)
         return argv5;
 }
 
-char *returnTimeXcmd()
-{
-    switch (timeXcmd)
-    {
-    case 1:
-        return argv1[0];
-    case 2:
-        return argv2[0];
-    case 3:
-        return argv3[0];
-    case 4:
-        return argv4[0];
-    case 5:
-        return argv5[0];
-    }
-}
-
-int checkbackground()
+int checkbackground() // checks for & at the end of command
 {
     if (!strcmp(argv[sizeofargv-1],"&"))
     {
@@ -141,7 +121,7 @@ int checkbackground()
     return 0;
 }
 
-int main()
+int main() // main function
 {
     funcerr = 0;
     signal(SIGUSR1, handle_sigusr1);
@@ -150,8 +130,8 @@ int main()
     while (1)
     {
         background = 0;
-        // gets user input
-        get_cmd();
+        
+        get_cmd(); // gets user input
 
         if (!strcmp(cmd, ""))
         {
@@ -163,8 +143,8 @@ int main()
             printf("3230shell: invalid uasge of |\n");
             continue;
         }
-        // use strtok to store variable
-        convert_cmd();
+        
+        convert_cmd(); // store user input to argv array with space as a delimiter
 
         if (checkbackground() == 1)
         {
@@ -174,8 +154,8 @@ int main()
         }
 
         int consecutive_pipes_error_flag = 0;
-        // error if "||" exits in input
-        for (int i = 0; i < sizeofargv; i++)
+    
+        for (int i = 0; i < sizeofargv; i++) // error if "||" exits in input
         {
             if (!strcmp(argv[i], "||"))
             {
@@ -189,7 +169,6 @@ int main()
             continue;
         }
 
-        // exit function handling
         if (!strcmp(cmd, "exit"))
         {
             if (exitfunc() == 1)
@@ -215,7 +194,7 @@ int main()
         }
         else
         {
-            div_arg();
+            div_arg(); // divide argv into argv1,2,3,4,5 as mentioned logic above
             if (!strcmp(cmd, "timeX"))
             {
                 if (timeXfunc() == 1)
@@ -229,20 +208,6 @@ int main()
         }
     }
     return 0;
-}
-
-void block_sig() // blocks SIGINT
-{
-    sigset_t block_set;
-    sigemptyset(&block_set);
-    sigaddset(&block_set, SIGINT);
-    sigprocmask(SIG_BLOCK, &block_set, NULL);
-}
-
-void handle_sigint(int sig)
-{
-    printf("\n$$ 3230shell ## ");
-    fflush(stdout);
 }
 
 int exitfunc()
@@ -263,8 +228,8 @@ int exitfunc()
 
 int timeXfunc()
 {
-    // error handle for timeX function
-    if (!strcmp(argv[sizeofargv - 1], "&"))
+    
+    if (!strcmp(argv[sizeofargv - 1], "&")) // error handle for timeX function
     {
         printf("3230shell: \"timeX\" cannot be run in background mode\n");
         funcerr++;
@@ -315,7 +280,7 @@ int timeXfunc()
             printf("(PID)%d (CMD)%s (user)%.3f s (sys)%.3f s \n", t_pid, argv[1], rusage.ru_utime.tv_sec + rusage.ru_utime.tv_usec / 1000000.0, rusage.ru_stime.tv_sec + rusage.ru_stime.tv_usec / 1000000.0);
         }
     }
-    else if (pipecount > 0)
+    else if (pipecount > 0) // timeX with pipe
     {
 
         int fd[2], in = 0, out;
@@ -383,8 +348,7 @@ int timeXfunc()
 
                 struct rusage rusage;
                 int ret = wait4(lastpid, &status, 0, &rusage);
-                // printf("(PID)%d (CMD)%s (user)%.3f s (sys)%.3f s \n",pid, returnTimeXcmd(), rusage.ru_utime.tv_sec + rusage.ru_utime.tv_usec / 1000000.0, rusage.ru_stime.tv_sec + rusage.ru_stime.tv_usec / 1000000.0);
-
+                
                 struct timeX
                 {
                     int tpid;
@@ -393,8 +357,8 @@ int timeXfunc()
                     int systime;
                 };
 
-                struct timeX timeX1;
-                struct timeX timeX2;
+                struct timeX timeX1; // for every iteration, the values of the current process will be saved into these structs
+                struct timeX timeX2; // struct 1,2,3,4,5 corresponds to argv 1,2,3,4,5
                 struct timeX timeX3;
                 struct timeX timeX4;
                 struct timeX timeX5;
@@ -478,13 +442,12 @@ int timeXfunc()
 void get_cmd()
 {
     printf("$$ 3230shell ## ");
-    // block_sig();
     fgets(cmd, MAX_SIZE_CMD, stdin);
     if ((strlen(cmd) > 0) && (cmd[strlen(cmd) - 1] == '\n'))
         cmd[strlen(cmd) - 1] = '\0';
 }
 
-void convert_cmd()
+void convert_cmd() 
 {
 
     char *ptr;
@@ -508,7 +471,7 @@ void convert_cmd()
     }
 }
 
-int check_pipe()
+int check_pipe() //check for pipecount
 {
     pipecount = 0;
     for (i = 0; i < sizeofargv; i++)
@@ -528,7 +491,7 @@ int check_pipe()
     }
 }
 
-void without_pipe()
+void without_pipe() 
 {
     pid = fork();
     if (pid < 0)
@@ -578,16 +541,31 @@ void without_pipe()
     else
     {
         kill(pid, SIGUSR1);
-        
-        if (NULL == argv[i])
+
+        if(background == 0)
         {
-            waitpid(pid, NULL, 0);
+            int status;
+            struct rusage usage;
+            int child_pid = wait4(pid, &status, 0, &usage);
+            if (WIFEXITED(status))
+            {
+                int sCode = WEXITSTATUS(status);
+            }
+            else if (WIFSIGNALED(status))
+            {
+                int signalNum = WTERMSIG(status);
+            }
         }
-        // remove zombie processes
-        else {
-            waitpid(-1, NULL, WNOHANG);
-        }
-        //waitpid(pid, NULL, 0);
+        
+        // if (NULL == argv[i])
+        // {
+        //     waitpid(pid, NULL, 0);
+        // }
+        // // remove zombie processes
+        // else {
+        //     waitpid(-1, NULL, WNOHANG);
+        // }
+        // //waitpid(pid, NULL, 0);
         
     }
 }
