@@ -64,7 +64,8 @@ void handle_sigusr1(int sig)
     READY = 1;
 }
 
-void handle_sigchld(int sig) {    
+void handle_sigchld(int sig)
+{
     int status;
     siginfo_t signal_info;
 
@@ -167,17 +168,9 @@ int main()
 
         if (checkbackground() == 1)
         {
-            printf("background detected!\n");
             argv[sizeofargv-1] = NULL;
             background++;
             sizeofargv--;
-        }
-
-        printf("background count : %d\n ", background);
-
-        for (int i=0; i<sizeofargv; i++)
-        {
-            printf("argv[%d]: %s\n",i, argv[i]);
         }
 
         int consecutive_pipes_error_flag = 0;
@@ -548,7 +541,6 @@ void without_pipe()
         if (background == 1)
         {
             setpgid(0,0);
-            printf("hello I am here!!!\n");
             background = 0;
         }
 
@@ -863,11 +855,6 @@ int with_pipe() // handle os operations with pipe
         pid_t pid = fork();
         if (pid == 0)
         {
-            
-            if (background == 1)
-            {
-                setpgid(0,0);
-            }
 
             while (READY == 0)
             {
