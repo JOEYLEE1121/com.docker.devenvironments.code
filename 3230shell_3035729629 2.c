@@ -3,15 +3,16 @@ Sutdent Info:
     Name: Chang Jun Lee
     UID: 3035729629
 
-Development platform: 
+Development platform:
     docker
 
 Remark:
     All of the requirements and the bonus points are completed, but there is some minor issues.
-    Examples of error: 
+    Examples of error:
         1. background process runs and SIGCHLD is handled but the format is slightly different fro the documentation requirement.
         2. sometimes timeX function fails when & is typed in command, sometimes it doesn't.
         3. sometimes an unknown infinite loop occurs where commands does not work.
+            => when this happens, please kill and rerun the terminal, and the same command will work!!
 
 Reference list:
     1 pipe: https://www.youtube.com/watch?v=Mqb2dVRe0uo&t=566s
@@ -77,7 +78,7 @@ void handle_sigint(int sig)
     fflush(stdout);
 }
 
-void handle_sigusr1(int sig) 
+void handle_sigusr1(int sig)
 {
     READY = 1;
 }
@@ -87,11 +88,13 @@ void handle_sigchld(int sig)
     int status;
     siginfo_t siginfo;
 
-    while (waitid(P_ALL, 0, &siginfo, WNOHANG | WEXITED | WNOWAIT) >= 0) {
+    while (waitid(P_ALL, 0, &siginfo, WNOHANG | WEXITED | WNOWAIT) >= 0)
+    {
         pid_t pid = siginfo.si_pid;
-      if (pid == 0) {
-         break;
-      }
+        if (pid == 0)
+        {
+            break;
+        }
         fflush(stdout);
 
         // Remove zombie process
@@ -115,7 +118,7 @@ char **getArgvByNum(int id) // function to handle distribute commands properly w
 
 int checkbackground() // checks for & at the end of command
 {
-    if (!strcmp(argv[sizeofargv-1],"&"))
+    if (!strcmp(argv[sizeofargv - 1], "&"))
     {
         return 1;
     }
@@ -131,7 +134,7 @@ int main() // main function
     while (1)
     {
         background = 0;
-        
+
         get_cmd(); // gets user input
 
         if (!strcmp(cmd, ""))
@@ -144,18 +147,18 @@ int main() // main function
             printf("3230shell: invalid uasge of |\n");
             continue;
         }
-        
+
         convert_cmd(); // store user input to argv array with space as a delimiter
 
         if (checkbackground() == 1)
         {
-            argv[sizeofargv-1] = NULL;
+            argv[sizeofargv - 1] = NULL;
             background++;
             sizeofargv--;
         }
 
         int consecutive_pipes_error_flag = 0;
-    
+
         for (int i = 0; i < sizeofargv; i++) // error if "||" exits in input
         {
             if (!strcmp(argv[i], "||"))
@@ -229,7 +232,7 @@ int exitfunc()
 
 int timeXfunc()
 {
-    
+
     if (!strcmp(argv[sizeofargv - 1], "&")) // error handle for timeX function
     {
         printf("3230shell: \"timeX\" cannot be run in background mode\n");
@@ -349,7 +352,7 @@ int timeXfunc()
 
                 struct rusage rusage;
                 int ret = wait4(lastpid, &status, 0, &rusage);
-                
+
                 struct timeX
                 {
                     int tpid;
@@ -448,7 +451,7 @@ void get_cmd()
         cmd[strlen(cmd) - 1] = '\0';
 }
 
-void convert_cmd() 
+void convert_cmd()
 {
 
     char *ptr;
@@ -472,7 +475,7 @@ void convert_cmd()
     }
 }
 
-int check_pipe() //check for pipecount
+int check_pipe() // check for pipecount
 {
     pipecount = 0;
     for (i = 0; i < sizeofargv; i++)
@@ -492,7 +495,7 @@ int check_pipe() //check for pipecount
     }
 }
 
-void without_pipe() 
+void without_pipe()
 {
     pid = fork();
     if (pid < 0)
@@ -504,7 +507,7 @@ void without_pipe()
     {
         if (background == 1)
         {
-            setpgid(0,0);
+            setpgid(0, 0);
             background = 0;
         }
 
@@ -543,7 +546,7 @@ void without_pipe()
     {
         kill(pid, SIGUSR1);
 
-        if(background == 0)
+        if (background == 0)
         {
             int status;
             struct rusage usage;
@@ -556,7 +559,7 @@ void without_pipe()
             {
                 int signalNum = WTERMSIG(status);
             }
-        }   
+        }
     }
 }
 
@@ -592,7 +595,7 @@ int div_arg()
     {
 
     case 1:
-        //printf("");
+        // printf("");
         randomnumcount++;
 
         int spot;
@@ -622,7 +625,7 @@ int div_arg()
 
         break;
     case 2:
-        //printf("");
+        // printf("");
         randomnumcount++;
 
         int spot2_1;
@@ -669,7 +672,7 @@ int div_arg()
         argv3[sizeofargv - spot2_2 - 1] = '\0';
         break;
     case 3:
-        //printf("");
+        // printf("");
         randomnumcount++;
 
         int spot3_1;
@@ -730,7 +733,7 @@ int div_arg()
 
         break;
     case 4:
-        //printf("");
+        // printf("");
         randomnumcount++;
 
         int spot4_1;
